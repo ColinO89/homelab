@@ -1,0 +1,47 @@
+---
+- name: Install node and npm
+  hosts: webserver
+  tasks:
+    - name: Update apt repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+    - name: Install nodejs and npm
+      apt:
+        pkg:
+          - nodejs
+          - npm
+
+- name: Create new linux user for node app
+  hosts: webserver
+  tasks:
+    - name: Create user 'nodeapp
+      user:
+        name: nodeapp
+        comment: "User for nodejs application"
+        group: admin
+      register: user_creation_result
+    - debug: msg={{user_creation_result}}
+
+- name: Deploy node application
+  hosts: webserver
+  become: True
+  become_user: nodeapp
+  tasks:
+    - name: Unpack the nodejs app
+      unarchive:
+        src: /home/csimmons/Documents/Codebase/nodejs-app/nodejs-app-1.0.0.tgz
+        dest: /home/nodeapp
+      register: user_creation_result
+    - debug: msg={{user_creation_result}}
+    - name: Install nodejs dependencies
+      npm:
+        path: /home/nodeapp/package
+    - name: Start nodejs application
+      command: 
+        chdir: /home/nodeapp/package
+        cmd: node app/server.js
+      async: 1000
+      poll: 0
+    - name: Ensure app is running
+      shell: ps aux | grep node
+      register: node_app_status
+    - debug: msg={{node_app_status.stdout_lines}}
